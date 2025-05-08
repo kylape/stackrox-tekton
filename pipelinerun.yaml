@@ -1,0 +1,30 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: stackrox-
+spec:
+  pipelineRef:
+    name: stackrox
+  # podTemplate:
+  #   securityContext:
+  #     runAsNonRoot: true
+  #     runAsUser: 65532
+  #     fsGroup: 65532
+  workspaces:
+  - name: go-build-cache
+    persistentVolumeClaim:
+      claimName: go-build-cache
+  - name: shared-data
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+  params:
+  - name: repo-url
+    value: https://github.com/kylape/stackrox.git
+  taskRunSpecs:
+    - pipelineTaskName: deploy-stackrox
+      taskServiceAccountName: admin
