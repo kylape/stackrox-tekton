@@ -11,9 +11,14 @@ spec:
   #     runAsUser: 65532
   #     fsGroup: 65532
   workspaces:
-  - name: go-build-cache
-    persistentVolumeClaim:
-      claimName: go-build-cache
+  - name: build-cache
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
   - name: shared-data
     volumeClaimTemplate:
       spec:
@@ -25,6 +30,8 @@ spec:
   params:
   - name: repo-url
     value: https://github.com/kylape/stackrox.git
-  taskRunSpecs:
-    - pipelineTaskName: deploy-stackrox
-      taskServiceAccountName: admin
+  - name: revision
+    value: "forked-ci"
+  # taskRunSpecs:
+  # - pipelineTaskName: deploy-stackrox
+  #   taskServiceAccountName: admin

@@ -9,9 +9,11 @@ spec:
   params:
   - name: repo-url
     type: string
+  - name: revision
+    type: string
   workspaces:
   - name: shared-data
-  - name: go-build-cache
+  - name: build-cache
   tasks:
   - name: fetch-source
     workspaces:
@@ -25,27 +27,27 @@ spec:
     - name: submodules
       value: "false"
     - name: revision
-      value: "forked-ci"
+      value: $(params.revision)
   #- name: unit-test
   #  runAfter:
   #  - go-mod-tidy
   #  workspaces:
   #  - name: source
   #    workspace: shared-data
-  #  - name: go-build-cache
-  #    workspace: go-build-cache
+  #  - name: build-cache
+  #    workspace: build-cache
   #  taskSpec:
   #    steps:
   #    - name: unit-test
-  #      image: quay.io/klape/stackrox-builder:6
+  #      image: quay.io/klape/stackrox-builder:7
   #      script: |
   #        #!/usr/bin/env bash
   #        set -ex
   #        git config --global --add safe.directory /workspace/source
   #        cd $(workspaces.source.path)
   #        export PATH=$PATH:/go/bin
-  #        export GOMODCACHE=$(workspaces.go-build-cache.path)/go-mod-cache
-  #        export GOCACHE=$(workspaces.go-build-cache.path)/go-build-cache
+  #        export GOMODCACHE=$(workspaces.build-cache.path)/go-mod-cache
+  #        export GOCACHE=$(workspaces.build-cache.path)/build-cache
   #        make go-unit-tests
   - name: scanner-bundle
     runAfter:
@@ -56,39 +58,61 @@ spec:
     taskSpec:
       steps:
       - name: scanner-bundle
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
           set -ex
           cd $(workspaces.source.path)
           unzip /bundle.zip
-  - name: npm-install
+  - name: fetch-npm-cache
     runAfter:
     - fetch-source
     workspaces:
     - name: source
       workspace: shared-data
-    - name: go-build-cache
-      workspace: go-build-cache
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: fetch-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: ui/apps/platform/package.json
+    - name: BUCKET_NAME
+      value: npm-cache
+  - name: npm-install
+    runAfter:
+    - fetch-npm-cache
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
     taskSpec:
       steps:
       - name: npm-install
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
-          set -x
-          export PATH=$PATH:/go/bin
+          set -ex
           git config --global --add safe.directory  $(workspaces.source.path)
-          npm config set cache $(workspaces.go-build-cache.path)/npm-cache
+          npm config set cache $(workspaces.build-cache.path)/npm-cache
           cd $(workspaces.source.path)/ui/apps/platform
           npm ci
-          ls
-
-          if [[ ! -d "node_modules" ]]; then
-            # clear cache and try again
-            rm -rf $(workspaces.go-build-cache.path)/npm-cache
-            npm ci
-          fi
+  - name: put-npm-cache
+    runAfter:
+    - npm-install
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: put-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: ui/apps/platform/package.json
+    - name: BUCKET_NAME
+      value: npm-cache
   - name: download
     runAfter:
     - fetch-source
@@ -98,7 +122,7 @@ spec:
     taskSpec:
       steps:
       - name: download
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
           set -ex
@@ -115,7 +139,7 @@ spec:
     taskSpec:
       steps:
       - name: submodule
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
           set -ex
@@ -128,19 +152,19 @@ spec:
     workspaces:
     - name: source
       workspace: shared-data
-    - name: go-build-cache
-      workspace: go-build-cache
+    - name: build-cache
+      workspace: build-cache
     taskSpec:
       steps:
       - name: prep
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
           set -ex
           cd $(workspaces.source.path)
           export PATH=$PATH:/go/bin
-          export GOMODCACHE=$(workspaces.go-build-cache.path)/go-mod-cache
-          export GOCACHE=$(workspaces.go-build-cache.path)/go-build-cache
+          export GOMODCACHE=$(workspaces.build-cache.path)/go-mod-cache
+          export GOCACHE=$(workspaces.build-cache.path)/build-cache
           make swagger-docs
       - name: swagger-codegen
         image: swaggerapi/swagger-codegen-cli
@@ -149,72 +173,189 @@ spec:
           set -ex
           cd $(workspaces.source.path)
           java -jar /opt/swagger-codegen-cli/swagger-codegen-cli.jar generate -l html2 -i image/rhel/docs/api/v1/swagger.json -o image/rhel/docs/api/v1/reference
-  - name: go-mod-tidy
+  - name: fetch-gomod-cache
     runAfter:
     - fetch-source
     workspaces:
     - name: source
       workspace: shared-data
-    - name: go-build-cache
-      workspace: go-build-cache
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: fetch-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: go.mod
+    - name: BUCKET_NAME
+      value: go-mod-cache
+  - name: go-mod-tidy
+    runAfter:
+    - fetch-gomod-cache
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
     taskSpec:
       steps:
       - name: go-mod-tidy
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
           set -ex
-          mkdir -p $(workspaces.go-build-cache.path)/go-mod-cache
-          mkdir -p $(workspaces.go-build-cache.path)/go-build-cache
+          mkdir -p $(workspaces.build-cache.path)/build-cache
           cd $(workspaces.source.path)
-          GOMODCACHE=$(workspaces.go-build-cache.path)/go-mod-cache GOCACHE=$(workspaces.go-build-cache.path)/go-build-cache /go/bin/go mod tidy
-  - name: build-scanner-v2
+          GOMODCACHE=$(workspaces.build-cache.path)/go-mod-cache GOCACHE=$(workspaces.build-cache.path)/build-cache /go/bin/go mod tidy
+  - name: put-gomod-cache
     runAfter:
     - go-mod-tidy
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: put-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: go.mod
+    - name: BUCKET_NAME
+      value: go-mod-cache
+  - name: fetch-scanner-mod-cache
+    runAfter:
     - submodule
     workspaces:
     - name: source
       workspace: shared-data
-    - name: go-build-cache
-      workspace: go-build-cache
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: fetch-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: scannerv2/go.mod
+    - name: BUCKET_NAME
+      value: scanner-mod-cache
+  - name: fetch-scanner-cache
+    runAfter:
+    - submodule
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: fetch-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: scannerv2/go.mod
+    - name: BUCKET_NAME
+      value: scanner-cache
+  - name: build-scanner-v2
+    runAfter:
+    - fetch-scanner-cache
+    - submodule
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
     taskSpec:
       steps:
       - name: build-updater
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
           set -ex
           cd $(workspaces.source.path)
           export PATH=$PATH:/go/bin
-          GOMODCACHE=$(workspaces.go-build-cache.path)/go-mod-cache GOCACHE=$(workspaces.go-build-cache.path)/go-build-cache make bin/updater
+          GOMODCACHE=$(workspaces.build-cache.path)/scanner-mod-cache GOCACHE=$(workspaces.build-cache.path)/scanner-cache make bin/updater
       - name: build-scanner-v2
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
           set -ex
           cd $(workspaces.source.path)
           export PATH=$PATH:/go/bin
-          GOMODCACHE=$(workspaces.go-build-cache.path)/go-mod-cache GOCACHE=$(workspaces.go-build-cache.path)/go-build-cache make bin/scanner-v2
+          GOMODCACHE=$(workspaces.build-cache.path)/scanner-mod-cache GOCACHE=$(workspaces.build-cache.path)/scanner-cache make bin/scanner-v2
+  - name: put-scanner-mod-cache
+    runAfter:
+    - build-scanner-v2
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: put-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: scannerv2/go.mod
+    - name: BUCKET_NAME
+      value: scanner-mod-cache
+  - name: put-scanner-cache
+    runAfter:
+    - build-scanner-v2
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: put-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: scannerv2/go.mod
+    - name: BUCKET_NAME
+      value: scanner-cache
+  - name: fetch-go-cache
+    runAfter:
+    - fetch-source
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: fetch-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: go.mod
+    - name: BUCKET_NAME
+      value: go-cache
   - name: build-stackrox-go-binaries
     runAfter:
     - go-mod-tidy
     workspaces:
     - name: source
       workspace: shared-data
-    - name: go-build-cache
-      workspace: go-build-cache
+    - name: build-cache
+      workspace: build-cache
     taskSpec:
       steps:
       - name: build-go-binaries
-        image: quay.io/klape/stackrox-builder:6
+        image: quay.io/klape/stackrox-builder:7
         script: |
           #!/usr/bin/env bash
           set -ex
           cd $(workspaces.source.path)
           export PATH=$PATH:/go/bin
-          GOMODCACHE=$(workspaces.go-build-cache.path)/go-mod-cache GOCACHE=$(workspaces.go-build-cache.path)/go-build-cache make central secured-cluster bin/installer
-          ls -lh
-          ls -lh bin/
+          GOMODCACHE=$(workspaces.build-cache.path)/go-mod-cache GOCACHE=$(workspaces.build-cache.path)/go-cache make central secured-cluster bin/installer
+  - name: put-go-cache
+    runAfter:
+    - build-stackrox-go-binaries
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: build-cache
+      workspace: build-cache
+    taskRef:
+      name: put-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: go.mod
+    - name: BUCKET_NAME
+      value: go-cache
   - name: build-image
     runAfter:
     - build-stackrox-go-binaries
@@ -232,26 +373,26 @@ spec:
       value: kind-registry:5000/stackrox/stackrox:latest
     - name: PUSH_EXTRA_ARGS
       value: "--tls-verify=false"
-  - name: deploy-stackrox
-    runAfter:
-    - build-image
-    taskSpec:
-      steps:
-      - name: deploy-stackrox
-        image: localhost:5001/stackrox/stackrox:latest
-        command:
-        script: |
-          #!/usr/bin/env bash
-          set -ex
-          config_file=$(mktemp)
-          namespace=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
-          cat << EOF > "$config_file"
-          namespace: $namespace
-          scannerV4: true
-          images:
-            scannerDb: "localhost:5001/stackrox/scanner-db:latest"
-          EOF
-          /stackrox/installer -conf "$config_file" apply central
-          kubectl wait --for=condition=Available --timeout=90s deploy/central
-          /stackrox/installer -conf "$config_file" apply crs
-          /stackrox/installer -conf "$config_file" apply securedcluster
+  #- name: deploy-stackrox
+  #  runAfter:
+  #  - build-image
+  #  taskSpec:
+  #    steps:
+  #    - name: deploy-stackrox
+  #      image: localhost:5001/stackrox/stackrox:latest
+  #      command:
+  #      script: |
+  #        #!/usr/bin/env bash
+  #        set -ex
+  #        config_file=$(mktemp)
+  #        namespace=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
+  #        cat << EOF > "$config_file"
+  #        namespace: $namespace
+  #        scannerV4: true
+  #        images:
+  #          scannerDb: "localhost:5001/stackrox/scanner-db:latest"
+  #        EOF
+  #        /stackrox/installer -conf "$config_file" apply central
+  #        kubectl wait --for=condition=Available --timeout=90s deploy/central
+  #        /stackrox/installer -conf "$config_file" apply crs
+  #        /stackrox/installer -conf "$config_file" apply securedcluster
