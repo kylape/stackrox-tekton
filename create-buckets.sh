@@ -1,4 +1,8 @@
-mc mb minio/go-cache
-mc mb minio/go-mod-cache
-mc mb minio/npm-cache
-mc mb minio/scanner-mod-cache
+#!/usr/bin/env bash
+
+for bucket in "go-cache" "go-mod-cache" "npm-cache" "scanner-mod-cache"; do
+    mc mb minio/$bucket
+    for f in $(ls "buckets/$bucket"); do
+        mc put "./buckets/$bucket/$f" "minio/$bucket/$f"
+    done
+done
