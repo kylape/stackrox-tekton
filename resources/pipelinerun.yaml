@@ -28,10 +28,12 @@ spec:
           requests:
             storage: 10Gi
   params:
+  - name: builder-image
+    value: localhost:5001/stackrox/stackrox-builder:latest
   - name: repo-url
     value: https://github.com/kylape/stackrox.git
   - name: revision
     value: "forked-ci"
-  # taskRunSpecs:
-  # - pipelineTaskName: deploy-stackrox
-  #   taskServiceAccountName: admin
+  taskRunSpecs:
+  - pipelineTaskName: deploy-stackrox
+    taskServiceAccountName: admin
