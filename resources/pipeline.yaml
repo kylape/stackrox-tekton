@@ -100,7 +100,6 @@ spec:
           npm config set cache $(workspaces.build-cache.path)/npm-cache
           cd $(workspaces.source.path)/ui/apps/platform
           npm ci
-          ls -lah
   - name: put-npm-cache
     runAfter:
     - npm-install
@@ -152,6 +151,7 @@ spec:
   - name: gendocs
     runAfter:
     - go-mod-tidy
+    - npm-install
     workspaces:
     - name: source
       workspace: shared-data
@@ -168,7 +168,9 @@ spec:
           export PATH=$PATH:/go/bin
           export GOMODCACHE=$(workspaces.build-cache.path)/go-mod-cache
           export GOCACHE=$(workspaces.build-cache.path)/build-cache
-          make swagger-docs
+          make image/rhel/docs/api/v1/swagger.json image/rhel/docs/api/v2/swagger.json
+          npm exec -- swagger2openapi ./image/rhel/docs/api/v1/swagger.json -o ./image/rhel/docs/api/v1/openapi.json
+          npm exec -- swagger2openapi ./image/rhel/docs/api/v2/swagger.json -o ./image/rhel/docs/api/v2/openapi.json
       - name: swagger-codegen
         image: swaggerapi/swagger-codegen-cli
         script: |
