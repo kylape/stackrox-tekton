@@ -15,7 +15,6 @@ spec:
     type: string
   workspaces:
   - name: shared-data
-  - name: build-cache
   tasks:
   - name: fetch-source
     workspaces:
@@ -30,6 +29,8 @@ spec:
       value: "false"
     - name: revision
       value: $(params.revision)
+    - name: subdirectory
+      value: source
   #- name: unit-test
   #  runAfter:
   #  - go-mod-tidy
@@ -64,16 +65,14 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          cd $(workspaces.source.path)
+          cd $(workspaces.shared-data.path)/source
           unzip /bundle.zip
   - name: fetch-npm-cache
     runAfter:
     - fetch-source
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: fetch-cache
     params:
@@ -85,10 +84,8 @@ spec:
     runAfter:
     - fetch-npm-cache
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskSpec:
       steps:
       - name: npm-install
@@ -96,18 +93,16 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          git config --global --add safe.directory  $(workspaces.source.path)
+          git config --global --add safe.directory  $(workspaces.shared-data.path)/source
           npm config set cache $(workspaces.build-cache.path)/npm-cache
-          cd $(workspaces.source.path)/ui/apps/platform
+          cd $(workspaces.shared-data.path)/source/ui/apps/platform
           npm ci
   - name: put-npm-cache
     runAfter:
     - npm-install
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: put-cache
     params:
@@ -119,7 +114,7 @@ spec:
     runAfter:
     - fetch-source
     workspaces:
-    - name: source
+    - name: output
       workspace: shared-data
     taskSpec:
       steps:
@@ -128,15 +123,15 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          cd $(workspaces.source.path)
+          cd $(workspaces.output.path)/source
           export PATH=$PATH:/go/bin
           mkdir data
           make download
   - name: submodule
     runAfter:
-    - fetch-source
+    - download
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
     taskSpec:
       steps:
@@ -145,18 +140,16 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          cd $(workspaces.source.path)
-          git config --global --add safe.directory $(workspaces.source.path)
+          cd $(workspaces.shared-data.path)/source
+          git config --global --add safe.directory $(workspaces.shared-data.path)/source
           git submodule update --init --recursive scannerv2
   - name: gendocs
     runAfter:
     - go-mod-tidy
     - npm-install
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskSpec:
       steps:
       - name: prep
@@ -164,10 +157,10 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          cd $(workspaces.source.path)
+          cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
-          export GOMODCACHE=$(workspaces.build-cache.path)/go-mod-cache
-          export GOCACHE=$(workspaces.build-cache.path)/build-cache
+          export GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache
+          export GOCACHE=$(workspaces.shared-data.path)/build-cache
           make image/rhel/docs/api/v1/swagger.json image/rhel/docs/api/v2/swagger.json
           npm exec -- swagger2openapi ./image/rhel/docs/api/v1/swagger.json -o ./image/rhel/docs/api/v1/openapi.json
           npm exec -- swagger2openapi ./image/rhel/docs/api/v2/swagger.json -o ./image/rhel/docs/api/v2/openapi.json
@@ -176,16 +169,14 @@ spec:
         script: |
           #!/usr/bin/env sh
           set -ex
-          cd $(workspaces.source.path)
+          cd $(workspaces.shared-data.path)/source
           java -jar /opt/swagger-codegen-cli/swagger-codegen-cli.jar generate -l html2 -i image/rhel/docs/api/v1/swagger.json -o image/rhel/docs/api/v1/reference
   - name: fetch-gomod-cache
     runAfter:
     - fetch-source
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: fetch-cache
     params:
@@ -197,10 +188,8 @@ spec:
     runAfter:
     - fetch-gomod-cache
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskSpec:
       steps:
       - name: go-mod-tidy
@@ -208,17 +197,15 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          mkdir -p $(workspaces.build-cache.path)/build-cache
-          cd $(workspaces.source.path)
-          GOMODCACHE=$(workspaces.build-cache.path)/go-mod-cache GOCACHE=$(workspaces.build-cache.path)/build-cache /go/bin/go mod tidy
+          mkdir -p $(workspaces.shared-data.path)/build-cache
+          cd $(workspaces.shared-data.path)/source
+          GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/build-cache /go/bin/go mod tidy
   - name: put-gomod-cache
     runAfter:
     - go-mod-tidy
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: put-cache
     params:
@@ -230,10 +217,8 @@ spec:
     runAfter:
     - submodule
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: fetch-cache
     params:
@@ -245,10 +230,8 @@ spec:
     runAfter:
     - submodule
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: fetch-cache
     params:
@@ -261,10 +244,8 @@ spec:
     - fetch-scanner-cache
     - submodule
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskSpec:
       steps:
       - name: build-updater
@@ -272,25 +253,23 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          cd $(workspaces.source.path)
+          cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
-          GOMODCACHE=$(workspaces.build-cache.path)/scanner-mod-cache GOCACHE=$(workspaces.build-cache.path)/scanner-cache make bin/updater
+          GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache make bin/updater
       - name: build-scanner-v2
         image: $(params.builder-image)
         script: |
           #!/usr/bin/env bash
           set -ex
-          cd $(workspaces.source.path)
+          cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
-          GOMODCACHE=$(workspaces.build-cache.path)/scanner-mod-cache GOCACHE=$(workspaces.build-cache.path)/scanner-cache make bin/scanner-v2
+          GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache make bin/scanner-v2
   - name: put-scanner-mod-cache
     runAfter:
     - build-scanner-v2
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: put-cache
     params:
@@ -302,10 +281,8 @@ spec:
     runAfter:
     - build-scanner-v2
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: put-cache
     params:
@@ -317,10 +294,8 @@ spec:
     runAfter:
     - fetch-source
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: fetch-cache
     params:
@@ -332,10 +307,8 @@ spec:
     runAfter:
     - go-mod-tidy
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskSpec:
       steps:
       - name: build-go-binaries
@@ -343,17 +316,15 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          cd $(workspaces.source.path)
+          cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
-          GOMODCACHE=$(workspaces.build-cache.path)/go-mod-cache GOCACHE=$(workspaces.build-cache.path)/go-cache make central secured-cluster bin/installer
+          GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/go-cache make central secured-cluster bin/installer
   - name: put-go-cache
     runAfter:
     - build-stackrox-go-binaries
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
-    - name: build-cache
-      workspace: build-cache
     taskRef:
       name: put-cache
     params:
@@ -369,7 +340,7 @@ spec:
     - download
     - npm-install
     workspaces:
-    - name: source
+    - name: shared-data
       workspace: shared-data
     taskRef:
       name: buildah
