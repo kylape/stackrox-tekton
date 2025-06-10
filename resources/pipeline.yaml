@@ -16,6 +16,19 @@ spec:
   workspaces:
   - name: shared-data
   tasks:
+  - name: mock-docker-config
+    workspaces:
+    - name: source
+      workspace: shared-data
+    taskSpec:
+      steps:
+      - name: scanner-bundle
+        image: $(params.builder-image)
+        script: |
+          #!/usr/bin/env bash
+          set -ex
+          mkdir -p $(workspaces.source.path)/.docker
+          touch $(workspaces.source.path)/config.json
   - name: fetch-source
     workspaces:
     - name: output
@@ -69,7 +82,7 @@ spec:
           unzip /bundle.zip
   - name: fetch-npm-cache
     runAfter:
-    - scanner-bundle
+    - fetch-source
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -80,6 +93,8 @@ spec:
       value: ui/apps/platform/package.json
     - name: BUCKET_NAME
       value: npm-cache
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
   - name: npm-install
     runAfter:
     - fetch-npm-cache
@@ -105,13 +120,15 @@ spec:
     taskRef:
       name: put-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: ui/apps/platform/package.json
     - name: BUCKET_NAME
       value: npm-cache
   - name: download
     runAfter:
-    - put-npm-cache
+      - fetch-source
     workspaces:
     - name: output
       workspace: shared-data
@@ -126,21 +143,6 @@ spec:
           export PATH=$PATH:/go/bin
           mkdir data
           make download
-  - name: submodule
-    runAfter:
-    - download
-    workspaces:
-    - name: shared-data
-      workspace: shared-data
-    taskSpec:
-      steps:
-      - name: submodule
-        image: $(params.builder-image)
-        script: |
-          #!/usr/bin/env bash
-          set -ex
-          cd $(workspaces.shared-data.path)/source
-          git submodule update --init --recursive scannerv2
   - name: fetch-gomod-cache
     runAfter:
     - submodule
@@ -150,6 +152,8 @@ spec:
     taskRef:
       name: fetch-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: go.mod
     - name: BUCKET_NAME
@@ -163,6 +167,8 @@ spec:
     taskRef:
       name: fetch-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: go.mod
     - name: BUCKET_NAME
@@ -182,6 +188,8 @@ spec:
           set -ex
           mkdir -p $(workspaces.shared-data.path)/build-cache
           cd $(workspaces.shared-data.path)/source
+          export GOARCH=arm64
+          export GOMAXPROCS=8
           GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/build-cache /go/bin/go mod tidy
   - name: gendocs
     runAfter:
@@ -198,13 +206,15 @@ spec:
           set -ex
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
+          export GOARCH=arm64
+          export GOMAXPROCS=8
           export GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache
           export GOCACHE=$(workspaces.shared-data.path)/build-cache
           make image/rhel/docs/api/v1/swagger.json image/rhel/docs/api/v2/swagger.json
           npm exec -- swagger2openapi ./image/rhel/docs/api/v1/swagger.json -o ./image/rhel/docs/api/v1/openapi.json
           npm exec -- swagger2openapi ./image/rhel/docs/api/v2/swagger.json -o ./image/rhel/docs/api/v2/openapi.json
       - name: swagger-codegen
-        image: swaggerapi/swagger-codegen-cli
+        image: swaggerapi/swagger-codegen-cli:2.4.43
         script: |
           #!/usr/bin/env sh
           set -ex
@@ -212,7 +222,7 @@ spec:
           java -jar /opt/swagger-codegen-cli/swagger-codegen-cli.jar generate -l html2 -i image/rhel/docs/api/v1/swagger.json -o image/rhel/docs/api/v1/reference
   - name: build-stackrox-go-binaries
     runAfter:
-    - gendocs
+    - go-mod-tidy
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -225,9 +235,12 @@ spec:
           set -ex
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
+          export GOARCH=arm64
+          export GOMAXPROCS=8
           GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/go-cache make central secured-cluster bin/installer
   - name: put-go-cache
     runAfter:
+    - gendocs
     - build-stackrox-go-binaries
     workspaces:
     - name: shared-data
@@ -235,6 +248,8 @@ spec:
     taskRef:
       name: put-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: go.mod
     - name: BUCKET_NAME
@@ -248,19 +263,38 @@ spec:
     taskRef:
       name: put-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: go.mod
     - name: BUCKET_NAME
       value: go-mod-cache
+  - name: submodule
+    runAfter:
+    - fetch-source
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+    taskSpec:
+      steps:
+      - name: submodule
+        image: $(params.builder-image)
+        script: |
+          #!/usr/bin/env bash
+          set -ex
+          cd $(workspaces.shared-data.path)/source
+          git submodule update --init --recursive scannerv2
   - name: fetch-scanner-mod-cache
     runAfter:
-    - put-gomod-cache
+    - submodule
     workspaces:
     - name: shared-data
       workspace: shared-data
     taskRef:
       name: fetch-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: scannerv2/go.mod
     - name: BUCKET_NAME
@@ -274,6 +308,8 @@ spec:
     taskRef:
       name: fetch-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: scannerv2/go.mod
     - name: BUCKET_NAME
@@ -291,16 +327,26 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
+          ulimit -u 65536
+          ulimit -n 65536
+          ulimit -s 65536
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
+          export GOARCH=arm64
+          export GOMAXPROCS=8
           GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache make bin/updater
       - name: build-scanner-v2
         image: $(params.builder-image)
         script: |
           #!/usr/bin/env bash
           set -ex
+          ulimit -u 65536
+          ulimit -n 65536
+          ulimit -s 65536
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
+          export GOARCH=arm64
+          export GOMAXPROCS=8
           GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache make bin/scanner-v2
   - name: put-scanner-mod-cache
     runAfter:
@@ -311,6 +357,8 @@ spec:
     taskRef:
       name: put-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: scannerv2/go.mod
     - name: BUCKET_NAME
@@ -324,6 +372,8 @@ spec:
     taskRef:
       name: put-cache
     params:
+    - name: BUILDER_IMAGE
+      value: $(params.builder-image)
     - name: HASHED_FILE_PATH
       value: scannerv2/go.mod
     - name: BUCKET_NAME
@@ -331,8 +381,12 @@ spec:
   - name: build-image
     runAfter:
     - put-scanner-cache
+    - put-gomod-cache
+    - put-npm-cache
     workspaces:
     - name: source
+      workspace: shared-data
+    - name: dockerconfig
       workspace: shared-data
     taskRef:
       name: buildah
