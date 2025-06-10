@@ -69,7 +69,7 @@ spec:
           unzip /bundle.zip
   - name: fetch-npm-cache
     runAfter:
-    - fetch-source
+    - scanner-bundle
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -93,8 +93,7 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          git config --global --add safe.directory  $(workspaces.shared-data.path)/source
-          npm config set cache $(workspaces.build-cache.path)/npm-cache
+          npm config set cache $(workspaces.shared-data.path)/npm-cache
           cd $(workspaces.shared-data.path)/source/ui/apps/platform
           npm ci
   - name: put-npm-cache
@@ -112,7 +111,7 @@ spec:
       value: npm-cache
   - name: download
     runAfter:
-    - fetch-source
+    - put-npm-cache
     workspaces:
     - name: output
       workspace: shared-data
@@ -141,12 +140,52 @@ spec:
           #!/usr/bin/env bash
           set -ex
           cd $(workspaces.shared-data.path)/source
-          git config --global --add safe.directory $(workspaces.shared-data.path)/source
           git submodule update --init --recursive scannerv2
+  - name: fetch-gomod-cache
+    runAfter:
+    - submodule
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+    taskRef:
+      name: fetch-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: go.mod
+    - name: BUCKET_NAME
+      value: go-mod-cache
+  - name: fetch-go-cache
+    runAfter:
+    - fetch-gomod-cache
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+    taskRef:
+      name: fetch-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: go.mod
+    - name: BUCKET_NAME
+      value: go-cache
+  - name: go-mod-tidy
+    runAfter:
+    - fetch-go-cache
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+    taskSpec:
+      steps:
+      - name: go-mod-tidy
+        image: $(params.builder-image)
+        script: |
+          #!/usr/bin/env bash
+          set -ex
+          mkdir -p $(workspaces.shared-data.path)/build-cache
+          cd $(workspaces.shared-data.path)/source
+          GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/build-cache /go/bin/go mod tidy
   - name: gendocs
     runAfter:
     - go-mod-tidy
-    - npm-install
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -171,38 +210,38 @@ spec:
           set -ex
           cd $(workspaces.shared-data.path)/source
           java -jar /opt/swagger-codegen-cli/swagger-codegen-cli.jar generate -l html2 -i image/rhel/docs/api/v1/swagger.json -o image/rhel/docs/api/v1/reference
-  - name: fetch-gomod-cache
+  - name: build-stackrox-go-binaries
     runAfter:
-    - fetch-source
-    workspaces:
-    - name: shared-data
-      workspace: shared-data
-    taskRef:
-      name: fetch-cache
-    params:
-    - name: HASHED_FILE_PATH
-      value: go.mod
-    - name: BUCKET_NAME
-      value: go-mod-cache
-  - name: go-mod-tidy
-    runAfter:
-    - fetch-gomod-cache
+    - gendocs
     workspaces:
     - name: shared-data
       workspace: shared-data
     taskSpec:
       steps:
-      - name: go-mod-tidy
+      - name: build-go-binaries
         image: $(params.builder-image)
         script: |
           #!/usr/bin/env bash
           set -ex
-          mkdir -p $(workspaces.shared-data.path)/build-cache
           cd $(workspaces.shared-data.path)/source
-          GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/build-cache /go/bin/go mod tidy
+          export PATH=$PATH:/go/bin
+          GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/go-cache make central secured-cluster bin/installer
+  - name: put-go-cache
+    runAfter:
+    - build-stackrox-go-binaries
+    workspaces:
+    - name: shared-data
+      workspace: shared-data
+    taskRef:
+      name: put-cache
+    params:
+    - name: HASHED_FILE_PATH
+      value: go.mod
+    - name: BUCKET_NAME
+      value: go-cache
   - name: put-gomod-cache
     runAfter:
-    - go-mod-tidy
+    - put-go-cache
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -215,7 +254,7 @@ spec:
       value: go-mod-cache
   - name: fetch-scanner-mod-cache
     runAfter:
-    - submodule
+    - put-gomod-cache
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -228,7 +267,7 @@ spec:
       value: scanner-mod-cache
   - name: fetch-scanner-cache
     runAfter:
-    - submodule
+    - fetch-scanner-mod-cache
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -242,7 +281,6 @@ spec:
   - name: build-scanner-v2
     runAfter:
     - fetch-scanner-cache
-    - submodule
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -279,7 +317,7 @@ spec:
       value: scanner-mod-cache
   - name: put-scanner-cache
     runAfter:
-    - build-scanner-v2
+    - put-scanner-mod-cache
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -290,55 +328,9 @@ spec:
       value: scannerv2/go.mod
     - name: BUCKET_NAME
       value: scanner-cache
-  - name: fetch-go-cache
-    runAfter:
-    - fetch-source
-    workspaces:
-    - name: shared-data
-      workspace: shared-data
-    taskRef:
-      name: fetch-cache
-    params:
-    - name: HASHED_FILE_PATH
-      value: go.mod
-    - name: BUCKET_NAME
-      value: go-cache
-  - name: build-stackrox-go-binaries
-    runAfter:
-    - go-mod-tidy
-    workspaces:
-    - name: shared-data
-      workspace: shared-data
-    taskSpec:
-      steps:
-      - name: build-go-binaries
-        image: $(params.builder-image)
-        script: |
-          #!/usr/bin/env bash
-          set -ex
-          cd $(workspaces.shared-data.path)/source
-          export PATH=$PATH:/go/bin
-          GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/go-cache make central secured-cluster bin/installer
-  - name: put-go-cache
-    runAfter:
-    - build-stackrox-go-binaries
-    workspaces:
-    - name: shared-data
-      workspace: shared-data
-    taskRef:
-      name: put-cache
-    params:
-    - name: HASHED_FILE_PATH
-      value: go.mod
-    - name: BUCKET_NAME
-      value: go-cache
   - name: build-image
     runAfter:
-    - build-stackrox-go-binaries
-    - build-scanner-v2
-    - gendocs
-    - download
-    - npm-install
+    - put-scanner-cache
     workspaces:
     - name: shared-data
       workspace: shared-data

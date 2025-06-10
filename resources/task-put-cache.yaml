@@ -29,11 +29,11 @@ spec:
       #!/usr/bin/env bash
       set -x
       cache_key=$(params.BUCKET_NAME)-$(sha256sum $(workspaces.shared-data.path)/source/$(params.HASHED_FILE_PATH) | cut -f 1 -d ' ')
-      mc alias set minio $(params.S3_URL) $(params.AWS_ACCESS_KEY_ID) $(params.AWS_SECRET_ACCESS_KEY)
-      mc stat minio/$(params.BUCKET_NAME)/$cache_key
+      mc --config-dir=$(workspaces.shared-data.path)/.mc alias set minio $(params.S3_URL) $(params.AWS_ACCESS_KEY_ID) $(params.AWS_SECRET_ACCESS_KEY)
+      mc --config-dir=$(workspaces.shared-data.path)/.mc stat minio/$(params.BUCKET_NAME)/$cache_key
       if [[ "$?" != "0" ]]; then
         tar cf $cache_key.tar.zst --zstd $(params.BUCKET_NAME)/
-        mc put $cache_key.tar.zst minio/$(params.BUCKET_NAME)/$cache_key 
+        mc --config-dir=$(workspaces.shared-data.path)/.mc put $cache_key.tar.zst minio/$(params.BUCKET_NAME)/$cache_key 
         rm $cache_key.tar.zst
       fi
     workingDir: $(workspaces.shared-data.path)
