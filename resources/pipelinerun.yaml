@@ -9,6 +9,14 @@ spec:
     env:
     - name: DOCKER_CONFIG
       value: /tmp/.docker
+    - name: HOME
+      value: /tmp
+    - name: NPM_CONFIG_USERCONFIG      # Add these npm-specific vars
+      value: /tmp/.npmrc
+    - name: NPM_CONFIG_CACHE
+      value: /tmp/.npm-cache  # Or use workspace if you want persistence
+    - name: NPM_CONFIG_PREFIX
+      value: /tmp/.npm-global
     securityContext:
       runAsNonRoot: true
       runAsUser: 65532
@@ -22,7 +30,7 @@ spec:
         - ReadWriteOnce
         resources:
           requests:
-            storage: 10Gi
+            storage: 20Gi
   params:
   - name: builder-image
     # value: localhost:5001/stackrox/stackrox-builder:latest

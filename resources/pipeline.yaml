@@ -332,7 +332,7 @@ spec:
     runAfter:
     - put-scanner-cache
     workspaces:
-    - name: shared-data
+    - name: source
       workspace: shared-data
     taskRef:
       name: buildah
