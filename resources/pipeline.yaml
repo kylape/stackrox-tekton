@@ -28,7 +28,7 @@ spec:
           #!/usr/bin/env bash
           set -ex
           mkdir -p $(workspaces.source.path)/.docker
-          touch $(workspaces.source.path)/config.json
+          echo '{}' > $(workspaces.source.path)/config.json
   - name: fetch-source
     workspaces:
     - name: output
@@ -236,7 +236,7 @@ spec:
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
           export GOARCH=arm64
-          export GOMAXPROCS=8
+          export GOMAXPROCS=12
           GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/go-cache make central secured-cluster bin/installer
   - name: put-go-cache
     runAfter:
