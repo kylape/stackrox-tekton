@@ -8,6 +8,7 @@ kubectl patch configmap feature-flags -n tekton-pipelines --type='merge' -p='{"d
 
 kubectl create -f resources/pvc-minio.yaml -f resources/deploy-minio.yaml
 kubectl expose deploy/minio --port 9000 --name minio
+sleep 1
 kubectl -n tekton-pipelines wait --for=condition=Available deploy/minio
 
 kubectl port-forward svc/minio 9000:9000 &
