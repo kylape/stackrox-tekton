@@ -7,7 +7,7 @@ kubectl create -f resources/pvc-minio.yaml -f resources/deploy-minio.yaml
 kubectl expose deploy/minio --port 9000 --name minio
 kubectl -n tekton-pipelines wait --for=condition=Available deploy/minio
 
-k port-forward svc/minio 9000:9000 &
+kubectl port-forward svc/minio 9000:9000 &
 port_forward_pid=$!
 mc alias set minio http://localhost:9000 minioadmin minioadmin
 
