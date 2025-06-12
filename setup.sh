@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set -xe
+set -o pipefail
+
 kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
 kubectl patch configmap feature-flags -n tekton-pipelines --type='merge' -p='{"data":{"disable-affinity-assistant":"true"}}' # for KinD
 
@@ -9,6 +12,7 @@ kubectl -n tekton-pipelines wait --for=condition=Available deploy/minio
 
 kubectl port-forward svc/minio 9000:9000 &
 port_forward_pid=$!
+sleep 1
 mc alias set minio http://localhost:9000 minioadmin minioadmin
 
 for bucket in "go-cache" "go-mod-cache" "npm-cache" "scanner-cache" "scanner-mod-cache"; do
