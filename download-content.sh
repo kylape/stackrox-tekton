@@ -3,9 +3,6 @@
 mkdir -p content
 cd content
 
-# This assumes the bundle has alread been placed here by hand for now at least
-mc alias set minio http://minio:9000 minioadmin minioadmin
-mc get minio/bundle/bundle.zip .
 
 if [ $(uname -m) = x86_64 ]; then
     curl https://dl.min.io/client/mc/release/linux-amd64/mc -L > mc
@@ -18,3 +15,7 @@ if [ $(uname -m) = aarch64 ]; then
 fi
 
 chmod +x mc
+
+# This assumes the bundle has alread been placed here by hand for now at least
+./mc alias set minio http://minio:9000 minioadmin minioadmin
+./mc get minio/bundle/bundle.zip .
