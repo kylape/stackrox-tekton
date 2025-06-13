@@ -8,13 +8,13 @@ mc alias set minio http://minio:9000 minioadmin minioadmin
 mc get minio/bundle/bundle.zip .
 
 if [ $(uname -m) = x86_64 ]; then
-    curl https://dl.min.io/client/mc/release/linux-amd64/mc > mc
-    curl https://go.dev/dl/go1.24.4.linux-amd64.tar.gz > go.tar.gz
+    curl https://dl.min.io/client/mc/release/linux-amd64/mc -L > mc
+    curl https://go.dev/dl/go1.24.4.linux-amd64.tar.gz -L > go.tar.gz
 fi
 
 if [ $(uname -m) = aarch64 ]; then 
-    curl https://dl.min.io/client/mc/release/linux-arm64/mc > mc
-    curl https://go.dev/dl/go1.24.4.linux-arm64.tar.gz > go.tar.gz
+    curl https://dl.min.io/client/mc/release/linux-arm64/mc -L > mc
+    curl https://go.dev/dl/go1.24.4.linux-arm64.tar.gz -L > go.tar.gz
 fi
 
 chmod +x mc
