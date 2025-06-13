@@ -1,0 +1,61 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: stackrox-tekton
+spec:
+  description: | 
+    This pipeline clones a git repo, builds a Docker image with Kaniko and
+    pushes it to a registry
+  params:
+  - name: repo-url
+    type: string
+  - name: revision
+    type: string
+  workspaces:
+  - name: shared-data
+  tasks:
+  - name: fetch-source
+    workspaces:
+    - name: output
+      workspace: shared-data
+    taskRef:
+      name: git-clone
+    params:
+    - name: url
+      value: $(params.repo-url)
+    - name: submodules
+      value: "false"
+    - name: revision
+      value: $(params.revision)
+    - name: subdirectory
+      value: source
+  - name: download-content
+    runAfter:
+    - fetch-source
+    taskSpec:
+      steps:
+      - name: deploy-stackrox
+        image: quay.io/fedora/fedora:43
+        command:
+        script: |
+          #!/usr/bin/env bash
+          set -ex
+          cd source
+          ./downoad-content.sh
+  - name: build-image
+    runAfter:
+    - download-content
+    workspaces:
+    - name: source
+      workspace: shared-data
+    - name: dockerconfig
+      workspace: shared-data
+    taskRef:
+      name: buildah
+    params:
+    - name: IMAGE
+      value: kind-registry:5000/stackrox/stackrox-tekton:latest
+    - name: PUSH_EXTRA_ARGS
+      value: "--tls-verify=false"
+    - name: CONTEXT
+      value: ./source

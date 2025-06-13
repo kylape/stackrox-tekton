@@ -4,7 +4,7 @@ metadata:
   generateName: stackrox-
 spec:
   pipelineRef:
-    name: stackrox
+    name: stackrox-tekton
   taskRunTemplate:
     podTemplate:
       env:
@@ -12,12 +12,6 @@ spec:
         value: /tmp/.docker
       - name: HOME
         value: /tmp
-      - name: NPM_CONFIG_USERCONFIG      # Add these npm-specific vars
-        value: /tmp/.npmrc
-      - name: NPM_CONFIG_CACHE
-        value: /tmp/.npm-cache  # Or use workspace if you want persistence
-      - name: NPM_CONFIG_PREFIX
-        value: /tmp/.npm-global
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -31,18 +25,13 @@ spec:
         - ReadWriteOnce
         resources:
           requests:
-            storage: 20Gi
+            storage: 8Gi
   params:
-  - name: builder-image
-    # value: localhost:5001/stackrox/stackrox-builder:latest
-    value: quay.io/klape/stackrox-builder:latest-arm64
   - name: repo-url
-    value: https://github.com/kylape/stackrox.git
+    value: https://github.com/kylape/stackrox-tekton.git
   - name: revision
-    value: "forked-ci"
+    value: main
   taskRunSpecs:
-  - pipelineTaskName: deploy-stackrox
-    serviceAccountName: admin
   - pipelineTaskName: build-image
     podTemplate:
       securityContext:
