@@ -14,6 +14,19 @@ spec:
   workspaces:
   - name: shared-data
   tasks:
+  - name: mock-docker-config
+    workspaces:
+    - name: source
+      workspace: shared-data
+    taskSpec:
+      steps:
+      - name: scanner-bundle
+        image: quay.io/fedora/fedora:43
+        script: |
+          #!/usr/bin/env bash
+          set -ex
+          mkdir -p $(workspaces.source.path)/.docker
+          echo '{}' > $(workspaces.source.path)/config.json
   - name: fetch-source
     workspaces:
     - name: output
@@ -48,6 +61,7 @@ spec:
   - name: build-image
     runAfter:
     - download-content
+    - mock-docker-config
     workspaces:
     - name: source
       workspace: shared-data
