@@ -1,7 +1,9 @@
 FROM quay.io/fedora/fedora:43
 
-COPY content/go.tar.gz /
-COPY content/mc /usr/bin
+ARG TARGETARCH
+
+COPY content/$TARGETARCH/go.tar.gz /
+COPY content/$TARGETARCH/mc /usr/bin
 RUN chmod +x /usr/bin/mc
 RUN tar xzf /go.tar.gz 
 COPY content/bundle.zip /

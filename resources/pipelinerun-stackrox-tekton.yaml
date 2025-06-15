@@ -26,11 +26,20 @@ spec:
         resources:
           requests:
             storage: 8Gi
+  - name: docker-credentials
+    secret:
+      secretName: klape-pull-secret
   params:
   - name: repo-url
     value: https://github.com/kylape/stackrox-tekton.git
   - name: revision
     value: main
+  - name: platforms
+    value: linux/amd64,linux/arm64
+  - name: push-args
+    value: --all
+  - name: output-image
+    value: quay.io/klape/tekton-build:latest
   taskRunSpecs:
   - pipelineTaskName: build-image
     podTemplate:

@@ -11,8 +11,15 @@ spec:
     type: string
   - name: revision
     type: string
+  - name: platforms
+    type: string
+  - name: push-args
+    type: string
+  - name: output-image
+    type: string
   workspaces:
   - name: shared-data
+  - name: docker-credentials
   tasks:
   - name: mock-docker-config
     workspaces:
@@ -66,13 +73,15 @@ spec:
     - name: source
       workspace: shared-data
     - name: dockerconfig
-      workspace: shared-data
+      workspace: docker-credentials
     taskRef:
       name: buildah
     params:
     - name: IMAGE
-      value: kind-registry:5000/stackrox/stackrox-tekton:latest
+      value: $(params.output-image)
     - name: PUSH_EXTRA_ARGS
-      value: "--tls-verify=false"
+      value: $(params.push-args)
     - name: CONTEXT
       value: ./source
+    - name: BUILD_EXTRA_ARGS
+      value: "--platform=$(params.platforms)"
