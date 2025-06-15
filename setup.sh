@@ -30,5 +30,5 @@ kill $port_forward_pid
 kubectl -n tekton-pipelines wait --for=condition=Available deploy/tekton-pipelines-webhook
 tkn hub install task git-clone
 tkn hub install task buildah
-kubectl create -f resources/pipeline.yaml -f resources/cluster-role-binding.yaml -f resources/task-fetch-cache.yaml -f resources/task-put-cache.yaml
+kubectl create -f resources/pipeline-stackrox.yaml -f resources/cluster-role-binding.yaml -f resources/task-fetch-cache.yaml -f resources/task-put-cache.yaml
 kubectl create sa admin
