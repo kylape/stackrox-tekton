@@ -31,11 +31,11 @@ spec:
         - ReadWriteOnce
         resources:
           requests:
-            storage: 20Gi
+            storage: 30Gi
   params:
   - name: builder-image
-    # value: localhost:5001/stackrox/stackrox-builder:latest
-    value: quay.io/klape/stackrox-builder:latest-arm64
+    value: localhost:5001/stackrox/stackrox-tekton:latest
+    # value: quay.io/klape/stackrox-builder:latest-arm64
   - name: repo-url
     value: https://github.com/stackrox/stackrox.git
   - name: revision
