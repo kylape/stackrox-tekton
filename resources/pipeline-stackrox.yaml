@@ -189,7 +189,6 @@ spec:
           mkdir -p $(workspaces.shared-data.path)/build-cache
           cd $(workspaces.shared-data.path)/source
           export GOARCH=arm64
-          export GOMAXPROCS=8
           GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/build-cache /go/bin/go mod tidy
   - name: gendocs
     runAfter:
@@ -207,7 +206,6 @@ spec:
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
           export GOARCH=arm64
-          export GOMAXPROCS=8
           export GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache
           export GOCACHE=$(workspaces.shared-data.path)/build-cache
           make image/rhel/docs/api/v1/swagger.json image/rhel/docs/api/v2/swagger.json
@@ -236,7 +234,6 @@ spec:
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
           export GOARCH=arm64
-          export GOMAXPROCS=12
           GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/go-cache make central secured-cluster bin/installer
   - name: put-go-cache
     runAfter:
@@ -333,7 +330,6 @@ spec:
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
           export GOARCH=arm64
-          export GOMAXPROCS=8
           GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache make bin/updater
       - name: build-scanner-v2
         image: $(params.builder-image)
@@ -346,7 +342,6 @@ spec:
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
           export GOARCH=arm64
-          export GOMAXPROCS=8
           GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache make bin/scanner-v2
   - name: put-scanner-mod-cache
     runAfter:
@@ -415,6 +410,8 @@ spec:
           scannerV4: true
           images:
             scannerDb: "localhost:5001/stackrox/scanner-db:latest"
+            scannerv4Db: "localhost:5001/stackrox/scanner-v4-db:latest"
+            centralDb: "localhost:5001/stackrox/central-db:latest"
           EOF
           /stackrox/installer -conf "$config_file" apply central
           kubectl wait --for=condition=Available --timeout=120s deploy/central
