@@ -39,7 +39,7 @@ spec:
   - name: push-args
     value: --all
   - name: output-image
-    value: quay.io/klape/tekton-build:latest
+    value: quay.io/klape/stackrox-builder:latest
   taskRunSpecs:
   - pipelineTaskName: build-image
     podTemplate:
