@@ -11,6 +11,7 @@
 - **Add linting tasks** - Include code quality checks (golangci-lint, ui-lint, etc.)
 - **Add image layer caching** - Cache container build layers
 - **Add go binary caching** - Cache compiled binaries
+- **Add DB image pipelines** - Create separate pipelines for central-db, scanner-db, scanner-v4-db images
 
 ## Low Priority
 - **Release builds** - Production builds without dev/debug packages, trim binaries
