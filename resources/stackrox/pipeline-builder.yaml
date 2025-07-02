@@ -1,0 +1,75 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: stackrox-builder
+spec:
+  description: |
+    This pipeline builds both StackRox and collector builder images for multi-arch (arm64, amd64)
+  params:
+  - name: repo-url
+    type: string
+    description: Git repository URL
+  - name: revision
+    type: string
+    description: Git revision to build
+    default: main
+  - name: stackrox-builder-tag
+    type: string
+    description: Tag for the StackRox builder image
+    default: latest
+  - name: collector-builder-tag
+    type: string
+    description: Tag for the collector builder image
+    default: latest
+  - name: registry
+    type: string
+    description: Container registry
+    default: kind-registry:5000
+  workspaces:
+  - name: shared-data
+    description: Shared workspace for source code and artifacts
+  tasks:
+  - name: fetch-source
+    workspaces:
+    - name: output
+      workspace: shared-data
+    taskRef:
+      name: git-clone
+    params:
+    - name: url
+      value: $(params.repo-url)
+    - name: submodules
+      value: "true"
+    - name: revision
+      value: $(params.revision)
+    - name: subdirectory
+      value: source
+  - name: stackrox-builder
+    runAfter:
+    - fetch-source
+    workspaces:
+    - name: source
+      workspace: shared-data
+    taskRef:
+      name: stackrox-builder
+    params:
+    - name: STACKROX_BUILDER_TAG
+      value: $(params.stackrox-builder-tag)
+    - name: REGISTRY
+      value: $(params.registry)
+  - name: collector-builder
+    runAfter:
+    - fetch-source
+    workspaces:
+    - name: source
+      workspace: shared-data
+    taskRef:
+      name: collector-builder
+    timeout: "2h0m0s"
+    params:
+    - name: BUILDER_IMAGE
+      value: quay.io/buildah/stable
+    - name: COLLECTOR_BUILDER_TAG
+      value: $(params.collector-builder-tag)
+    - name: REGISTRY
+      value: $(params.registry)
