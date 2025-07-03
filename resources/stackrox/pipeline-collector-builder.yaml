@@ -40,7 +40,7 @@ spec:
       value: $(params.revision)
     - name: subdirectory
       value: source
-  - name: stackrox-builder
+  - name: stackrox-collector-builder
     runAfter:
     - fetch-source
     workspaces:
