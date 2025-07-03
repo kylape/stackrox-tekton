@@ -5,9 +5,6 @@ metadata:
 spec:
   description: Build the collector builder image using buildah for multi-arch (arm64, amd64)
   params:
-  - name: BUILDER_IMAGE
-    type: string
-    description: Builder image to use for the task
   - name: COLLECTOR_BUILDER_TAG
     type: string
     description: Tag for the collector builder image
@@ -25,7 +22,7 @@ spec:
     script: |
       #!/usr/bin/env bash
       set -ex
-      cd $(workspaces.source.path)/source/collector
+      cd $(workspaces.source.path)/source
       
       # Build for arm64
       buildah build --platform linux/arm64 \

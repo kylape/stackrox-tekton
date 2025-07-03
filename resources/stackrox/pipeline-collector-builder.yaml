@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: stackrox-builder
+  name: stackrox-collector-builder
 spec:
   description: |
     This pipeline builds the StackRox builder image for multi-arch (arm64, amd64)
@@ -47,9 +47,9 @@ spec:
     - name: source
       workspace: shared-data
     taskRef:
-      name: stackrox-builder
+      name: collector-builder
     params:
-    - name: STACKROX_BUILDER_TAG
+    - name: COLLECTOR_BUILDER_TAG
       value: $(params.builder-tag)
     - name: REGISTRY
       value: $(params.registry)
