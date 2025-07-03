@@ -151,7 +151,8 @@ spec:
           make download
   - name: fetch-gomod-cache
     runAfter:
-    - submodule
+    - fetch-scanner
+    - fetch-collector
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -182,6 +183,8 @@ spec:
   - name: go-mod-tidy
     runAfter:
     - fetch-go-cache
+    - fetch-scanner
+    - fetch-collector
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -272,25 +275,96 @@ spec:
       value: go.mod
     - name: BUCKET_NAME
       value: go-mod-cache
-  - name: submodule
+  - name: read-versions
     runAfter:
     - fetch-source
     workspaces:
     - name: shared-data
       workspace: shared-data
     taskSpec:
+      results:
+      - name: scanner-version
+        description: Scanner version from SCANNER_VERSION file
+      - name: collector-version
+        description: Collector version from COLLECTOR_VERSION file
       steps:
-      - name: submodule
+      - name: read-versions
         image: $(params.builder-image)
         script: |
           #!/usr/bin/env bash
           set -ex
           cd $(workspaces.shared-data.path)/source
-          git submodule update --init --recursive scannerv2
-          git submodule update --init --recursive collector
+          
+          # Read scanner version and parse if it's git describe format
+          scanner_version_raw=$(cat SCANNER_VERSION | tr -d '\n')
+          echo "Raw scanner version: $scanner_version_raw"
+          
+          # Check if scanner version is in git describe format and map to appropriate branch/tag
+          if [[ "$scanner_version_raw" =~ ^2\.37 ]]; then
+            # Scanner version 2.37.x maps to release-2.37 branch
+            scanner_version="release-2.37"
+            echo "Mapped scanner version $scanner_version_raw to branch: $scanner_version"
+          elif [[ "$scanner_version_raw" =~ -g([a-f0-9]+)$ ]]; then
+            # For other git describe formats, use release-2.35 as fallback
+            scanner_version="release-2.35"
+            echo "Using fallback scanner branch for git describe format: $scanner_version"
+          else
+            # Use as-is if it doesn't match git describe format
+            scanner_version="$scanner_version_raw"
+            echo "Using scanner version as-is: $scanner_version"
+          fi
+          echo -n "$scanner_version" | tee $(results.scanner-version.path)
+          
+          # Handle collector version - for 3.22.x series, map to appropriate branch
+          collector_version_raw=$(cat COLLECTOR_VERSION | tr -d '\n')
+          if [[ "$collector_version_raw" =~ ^3\.22 ]]; then
+            # Collector version 3.22.x maps to release-3.22 branch
+            collector_version="release-3.22"
+            echo "Mapped collector version $collector_version_raw to branch: $collector_version"
+          elif [[ "$collector_version_raw" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            # Try version without prefix first
+            collector_version="$collector_version_raw"
+            echo "Using collector version as-is: $collector_version"
+          else
+            collector_version="$collector_version_raw"
+            echo "Using collector version as-is: $collector_version"
+          fi
+          echo -n "$collector_version" | tee $(results.collector-version.path)
+  - name: fetch-scanner
+    runAfter:
+    - read-versions
+    workspaces:
+    - name: output
+      workspace: shared-data
+    taskRef:
+      name: git-clone
+    params:
+    - name: url
+      value: "https://github.com/stackrox/scanner"
+    - name: revision
+      value: "$(tasks.read-versions.results.scanner-version)"
+    - name: subdirectory
+      value: scannerv2
+    - name: depth
+      value: "0"
+  - name: fetch-collector
+    runAfter:
+    - read-versions
+    workspaces:
+    - name: output
+      workspace: shared-data
+    taskRef:
+      name: git-clone
+    params:
+    - name: url
+      value: "https://github.com/stackrox/collector"
+    - name: revision
+      value: "$(tasks.read-versions.results.collector-version)"
+    - name: subdirectory
+      value: collector
   - name: collector-build
     runAfter:
-    - submodule
+    - fetch-collector
     workspaces:
     - name: shared-data
       workspace: shared-data
@@ -303,7 +377,7 @@ spec:
       value: $(params.registry)
   - name: fetch-scanner-mod-cache
     runAfter:
-    - submodule
+    - fetch-scanner
     workspaces:
     - name: shared-data
       workspace: shared-data
