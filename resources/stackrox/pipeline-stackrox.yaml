@@ -417,25 +417,29 @@ spec:
         script: |
           #!/usr/bin/env bash
           set -ex
-          ulimit -u 65536
-          ulimit -n 65536
-          ulimit -s 65536
           cd $(workspaces.shared-data.path)/scannerv2
           export PATH=$PATH:/go/bin
           export GOARCH=arm64
-          GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache make bin/updater
+          GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache go build -trimpath -o ./bin/updater ./cmd/updater
+          mkdir -p ../source/bin
+          cp ./bin/updater ../source/bin/
       - name: build-scanner-v2
         image: $(params.builder-image)
         script: |
           #!/usr/bin/env bash
           set -ex
-          ulimit -u 65536
-          ulimit -n 65536
-          ulimit -s 65536
           cd $(workspaces.shared-data.path)/scannerv2
           export PATH=$PATH:/go/bin
           export GOARCH=arm64
-          GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache make bin/scanner-v2
+          GOMODCACHE=$(workspaces.shared-data.path)/scanner-mod-cache GOCACHE=$(workspaces.shared-data.path)/scanner-cache go build -trimpath -ldflags="-X github.com/stackrox/scanner/pkg/version.Version=$(shell git describe --tags --abbrev=10 --dirty --long)" -o image/scanner/bin/scanner ./cmd/clair
+          cp ./image/scanner/bin/scanner ../source/bin/
+      - name: init-submodule
+        image: $(params.builder-image)
+        script: |
+          #!/usr/bin/env bash
+          set -ex
+          cd $(workspaces.shared-data.path)/source
+          git submodule update --init --recursive scannerv2
   - name: put-scanner-mod-cache
     runAfter:
     - build-scanner-v2

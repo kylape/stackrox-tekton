@@ -30,24 +30,14 @@ spec:
         -f builder/Dockerfile \
         builder
       
-      # Build for amd64
-      buildah build --platform linux/amd64 \
-        -t $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG)-amd64 \
-        -f builder/Dockerfile \
-        builder
-      
       # Push individual arch images
       buildah push --tls-verify=false \
         $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG)-arm64
-      buildah push --tls-verify=false \
-        $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG)-amd64
       
       # Create and push manifest list
       buildah manifest create $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG)
       buildah manifest add $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG) \
         $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG)-arm64
-      buildah manifest add $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG) \
-        $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG)-amd64
       buildah manifest push --all --tls-verify=false \
         $(params.REGISTRY)/stackrox/collector-builder:$(params.COLLECTOR_BUILDER_TAG)
     securityContext:

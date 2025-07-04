@@ -48,6 +48,7 @@ spec:
       workspace: shared-data
     taskRef:
       name: collector-builder
+    timeout: 2h0m
     params:
     - name: COLLECTOR_BUILDER_TAG
       value: $(params.builder-tag)

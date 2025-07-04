@@ -3,6 +3,7 @@ kind: PipelineRun
 metadata:
   generateName: stackrox-collector-builder-
 spec:
+  timeout: 2h0m
   pipelineRef:
     name: stackrox-collector-builder
   params:
