@@ -329,7 +329,7 @@ spec:
           cd $(workspaces.shared-data.path)/source
           export PATH=$PATH:/go/bin
           export GOARCH=arm64
-          GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/go-cache make central secured-cluster bin/installer
+          GOMODCACHE=$(workspaces.shared-data.path)/go-mod-cache GOCACHE=$(workspaces.shared-data.path)/go-cache make central secured-cluster bin/installer bin/operator
   - name: put-go-cache
     runAfter:
     - gendocs
