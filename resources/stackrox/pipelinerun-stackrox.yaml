@@ -33,7 +33,7 @@ spec:
   - name: repo-url
     value: https://github.com/kylape/stackrox.git
   - name: revision
-    value: master
+    value: vm-enricher
   taskRunSpecs:
   - pipelineTaskName: deploy-stackrox
     serviceAccountName: admin
