@@ -31,9 +31,9 @@ spec:
     # value: localhost:5001/stackrox/stackrox-tekton:latest
     value: quay.io/klape/stackrox-builder:latest-arm64
   - name: repo-url
-    value: https://github.com/kylape/stackrox.git
+    value: https://github.com/stackrox/stackrox.git
   - name: revision
-    value: vm-enricher
+    value: feature/central-proxy-ocp-console
   taskRunSpecs:
   - pipelineTaskName: deploy-stackrox
     serviceAccountName: admin
