@@ -35,8 +35,6 @@ spec:
   - name: revision
     value: feature/central-proxy-ocp-console
   taskRunSpecs:
-  - pipelineTaskName: deploy-stackrox
-    serviceAccountName: admin
   - pipelineTaskName: build-image
     podTemplate:
       securityContext:
